@@ -1,0 +1,31 @@
+{
+  "blacklist": [
+    "excel.exe",
+    "powerpnt.exe",
+    "photoshop.exe",
+    "acad.exe",
+    "mstsc.exe",
+    "snipaste.exe",
+    "illustrator.exe"
+  ],
+  "delayedCopy": {
+    "defaultDelayMs": 0,
+    "apps": {
+      "acrobat.exe": 320,
+      "acrord32.exe": 320,
+      "wps.exe": 280,
+      "wpspdf.exe": 280,
+      "foxitreader.exe": 260
+    }
+  },
+  "animations": {
+    "enable": true
+  },
+  "theme": "system",
+  "bubbleStyle": {
+    "accentColor": "#4c82ff",
+    "textColor": "#ffffff",
+    "backgroundColor": "rgba(31, 31, 45, 0.9)"
+  },
+  "autoLaunch": true
+}

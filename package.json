@@ -1,0 +1,56 @@
+{
+  "name": "fast-copy",
+  "version": "0.1.0",
+  "description": "Lightweight Electron clipboard helper that shows a floating copy button on text selection.",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "lint": "echo \"No lint configured\"",
+    "package": "electron-builder"
+  },
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "active-win": "^9.0.0",
+    "auto-launch": "^5.0.6"
+  },
+  "devDependencies": {
+    "electron": "^30.0.1",
+    "electron-builder": "^24.13.3"
+  },
+  "build": {
+    "appId": "com.selectioncopy.fastcopy",
+    "productName": "SelectionCopy",
+    "asar": true,
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "**/*",
+      "!dist{,/**/*}",
+      "!docs{,/**/*}",
+      "!*.log"
+    ],
+    "extraResources": [
+      {
+        "from": "config",
+        "to": "config",
+        "filter": [
+          "*.json"
+        ]
+      }
+    ],
+    "win": {
+      "icon": "assets/app-icon.ico",
+      "target": "nsis"
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true
+    },
+    "mac": {
+      "category": "public.app-category.productivity"
+    }
+  }
+}

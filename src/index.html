@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Fast Copy Prototype</title>
+    <link rel="stylesheet" href="./style.css" />
+  </head>
+  <body>
+    <main class="content">
+      <h1>Fast Copy</h1>
+      <p>
+        Select any portion of this text to see the floating copy button. This window
+        acts as a playground for experimenting with the selection overlay
+        behavior before integrating more advanced platform logic.
+      </p>
+      <p>
+        选中这段文字的任意部分，观察右下角的悬浮复制按钮。点击按钮即可将文本复制到剪贴板。
+      </p>
+      <p>
+        Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.
+      </p>
+    </main>
+    <div id="copy-bubble" class="copy-bubble hidden">
+      <button id="copy-button" class="copy-button" aria-label="Copy selection">
+        Copy
+      </button>
+      <span id="copy-feedback" class="copy-feedback" role="status" aria-live="polite">
+        Copied
+      </span>
+    </div>
+    <script type="module" src="./renderer.js"></script>
+  </body>
+</html>
