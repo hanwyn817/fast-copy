@@ -17,6 +17,11 @@
   --shadow-color: rgba(0, 0, 0, 0.6);
 }
 
+:root[data-mode='overlay'] {
+  --background-color: transparent;
+  --shadow-color: rgba(0, 0, 0, 0.45);
+}
+
 body {
   margin: 0;
   padding: 24px;
@@ -25,6 +30,20 @@ body {
   transition:
     background 220ms ease,
     color 220ms ease;
+}
+
+body[data-mode='overlay'] {
+  padding: 0;
+  background: transparent;
+}
+
+body[data-mode='overlay'] .content {
+  display: none;
+}
+
+body[data-mode='overlay'] #copy-bubble {
+  left: 50%;
+  top: 50%;
 }
 
 .content {

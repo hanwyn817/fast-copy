@@ -27,5 +27,12 @@
     "textColor": "#ffffff",
     "backgroundColor": "rgba(31, 31, 45, 0.9)"
   },
-  "autoLaunch": true
+  "autoLaunch": true,
+  "selectionAssistant": {
+    "enabled": true,
+    "triggerMode": "selected",
+    "filterMode": "blacklist",
+    "filterList": [],
+    "zoomFactor": 1
+  }
 }

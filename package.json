@@ -14,6 +14,9 @@
     "active-win": "^9.0.0",
     "auto-launch": "^5.0.6"
   },
+  "optionalDependencies": {
+    "selection-hook": "^1.0.12"
+  },
   "devDependencies": {
     "electron": "^30.0.1",
     "electron-builder": "^24.13.3"

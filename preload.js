@@ -17,5 +17,18 @@ contextBridge.exposeInMainWorld('selectionCopy', {
     return () => ipcRenderer.removeListener('selection-copy:native-theme', handler);
   },
   openConfigFolder: () => invoke('selection-copy:open-config-folder'),
+  determineToolbarSize: (width, height) =>
+    invoke('selection-copy:determine-toolbar-size', Number(width), Number(height)),
+  writeToClipboard: (text) => invoke('selection-copy:write-to-clipboard', text),
+  onShowBubble: (callback) => {
+    const handler = (_event, payload) => callback(payload);
+    ipcRenderer.on('selection-copy:show-bubble', handler);
+    return () => ipcRenderer.removeListener('selection-copy:show-bubble', handler);
+  },
+  onHideBubble: (callback) => {
+    const handler = () => callback();
+    ipcRenderer.on('selection-copy:hide-bubble', handler);
+    return () => ipcRenderer.removeListener('selection-copy:hide-bubble', handler);
+  },
   logError: (payload) => send('selection-copy:log-error', payload)
 });

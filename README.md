@@ -7,6 +7,7 @@ Lightweight Electron utility that surfaces a floating copy button when you highl
 ## Features
 
 - Floating bubble appears near any text selection with animated copy feedback.
+- Native Windows selection hook (via `selection-hook`) listens to global text highlights and repositions the floating bubble outside the Electron sandbox.
 - Configurable blacklist to disable the UI in specific foreground processes (`excel.exe`, `photoshop.exe`, ...).
 - Per-application copy delays (e.g., Acrobat / WPS / Foxit Reader) to avoid clipboard contention.
 - Auto-detects system light/dark theme and supports fully custom bubble colors.
@@ -28,6 +29,14 @@ npm start
 ```
 
 `npm start` launches Electron in development mode with the demo window (`src/index.html`). Select any text to test the floating button experience.
+
+> **Tip:** The global “select anywhere” experience requires Windows because it relies on the `selection-hook` native module. On macOS/Linux you can still open the demo window, but system-wide hooks stay disabled.
+
+### Windows Native Hook Requirements
+
+- Visual Studio Build Tools with Desktop C++ workload (needed the first time `selection-hook` compiles).
+- Execute `npm install` and `npm start`/`npm run package` **on Windows** so the native dependency can build.
+- The floating bubble runs in a transparent overlay window that follows selections; you can toggle the behaviour via the `selectionAssistant` section in the config file.
 
 ## Configuration
 
@@ -53,11 +62,23 @@ Key options:
     "textColor": "#ffffff",
     "backgroundColor": "rgba(31, 31, 45, 0.9)"
   },
-  "autoLaunch": true
+  "autoLaunch": true,
+  "selectionAssistant": {
+    "enabled": true,
+    "triggerMode": "selected",
+    "filterMode": "blacklist",
+    "filterList": [],
+    "zoomFactor": 1
+  }
 }
 ```
 
 Editing `config.json` will automatically refresh the renderer. Use the tray menu (Settings) to open the folder quickly.
+
+- `enabled`: master switch for the native hook (set to `false` to run demo mode only).
+- `triggerMode`: allows future `ctrlkey`/`shortcut` trigger behaviours; default `selected` fires automatically.
+- `filterMode` & `filterList`: refine which processes show the bubble in addition to the built-in blacklist.
+- `zoomFactor`: scales the overlay window for high-DPI setups.
 
 ## Logs
 
@@ -75,6 +96,7 @@ npm run package
 - Application/product name: **SelectionCopy**
 - App ID: `com.selectioncopy.fastcopy`
 - Bundles the tray icon (`assets/tray.png`) and app icon (`assets/app-icon.ico`).
+- Run this command on Windows so the `selection-hook` native module is rebuilt for the correct architecture.
 
 ## Tray Menu
 

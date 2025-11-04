@@ -3,6 +3,7 @@ const {
   BrowserWindow,
   Tray,
   Menu,
+  clipboard,
   nativeImage,
   nativeTheme,
   ipcMain,
@@ -13,6 +14,9 @@ const fs = require('fs');
 const fsPromises = require('fs/promises');
 const os = require('os');
 const AutoLaunch = require('auto-launch');
+const { createSelectionService } = require('./selectionService');
+
+const isWindows = process.platform === 'win32';
 
 const APP_DIR_NAME = 'SelectionCopy';
 const CONFIG_FILENAME = 'config.json';
@@ -47,7 +51,14 @@ const DEFAULT_CONFIG = {
     textColor: '#ffffff',
     backgroundColor: 'rgba(31, 31, 45, 0.9)'
   },
-  autoLaunch: true
+  autoLaunch: true,
+  selectionAssistant: {
+    enabled: true,
+    triggerMode: 'selected',
+    filterMode: 'blacklist',
+    filterList: [],
+    zoomFactor: 1
+  }
 };
 
 let mainWindow;
@@ -56,6 +67,7 @@ let configWatcher;
 let currentConfig = { ...DEFAULT_CONFIG };
 let autoLauncher;
 let activeWinModule;
+let selectionService;
 
 const getActiveWin = async () => {
   if (!activeWinModule) {
@@ -96,6 +108,60 @@ const mergeDeep = (base, overrides) => {
   return output;
 };
 
+const getSelectionAssistantConfig = () => {
+  const selectionConfig = currentConfig.selectionAssistant || {};
+  return {
+    blacklist: currentConfig.blacklist || [],
+    selectionFilterMode: selectionConfig.filterMode || 'blacklist',
+    selectionFilterList: selectionConfig.filterList || [],
+    selectionTriggerMode: selectionConfig.triggerMode || 'selected',
+    zoomFactor: selectionConfig.zoomFactor || 1
+  };
+};
+
+const updateSelectionServiceConfig = () => {
+  if (!selectionService || !selectionService.isAvailable()) {
+    return;
+  }
+  selectionService.updateConfig(getSelectionAssistantConfig());
+};
+
+const syncSelectionServiceState = async () => {
+  if (!selectionService || !selectionService.isAvailable()) {
+    return;
+  }
+
+  updateSelectionServiceConfig();
+  if (currentConfig.selectionAssistant?.enabled) {
+    await selectionService.start();
+  } else {
+    selectionService.stop();
+  }
+};
+
+const initializeSelectionService = async () => {
+  if (!isWindows) {
+    return;
+  }
+
+  selectionService = createSelectionService({
+    debug: !app.isPackaged,
+    logger: {
+      info: (message) => logMessage('info', message).catch(() => {}),
+      error: (error) => {
+        const payload =
+          error instanceof Error
+            ? { message: error.message, stack: error.stack }
+            : { message: String(error) };
+        logMessage('error', 'SelectionService error', payload).catch(() => {});
+      }
+    }
+  });
+
+  updateSelectionServiceConfig();
+  await syncSelectionServiceState();
+};
+
 const logMessage = async (level, message, meta = {}) => {
   try {
     await fsPromises.mkdir(getLogDirectory(), { recursive: true });
@@ -127,9 +193,11 @@ const loadConfigFromDisk = async () => {
     const raw = await fsPromises.readFile(getConfigPath(), 'utf-8');
     const parsed = JSON.parse(raw);
     currentConfig = mergeDeep(DEFAULT_CONFIG, parsed);
+    updateSelectionServiceConfig();
   } catch (error) {
     currentConfig = { ...DEFAULT_CONFIG };
     await logMessage('error', 'Failed to read config file, using defaults', { error: error.message });
+    updateSelectionServiceConfig();
   }
 };
 
@@ -144,6 +212,7 @@ const watchConfigFile = async () => {
       notifyRendererAboutConfig();
       refreshTrayMenu();
       await applyAutoLaunchSetting();
+      await syncSelectionServiceState();
     });
   } catch (error) {
     await logMessage('error', 'Failed to watch config file', { error: error.message });
@@ -151,9 +220,11 @@ const watchConfigFile = async () => {
 };
 
 const notifyRendererAboutConfig = () => {
-  if (mainWindow && !mainWindow.isDestroyed()) {
-    mainWindow.webContents.send('selection-copy:config-updated', currentConfig);
-  }
+  BrowserWindow.getAllWindows().forEach((window) => {
+    if (!window.isDestroyed()) {
+      window.webContents.send('selection-copy:config-updated', currentConfig);
+    }
+  });
 };
 
 const showMainWindow = () => {
@@ -317,6 +388,29 @@ const setupIpc = () => {
     return true;
   });
 
+  ipcMain.handle('selection-copy:determine-toolbar-size', async (_event, width, height) => {
+    if (selectionService && selectionService.isAvailable()) {
+      selectionService.setToolbarSize(width, height);
+    }
+    return true;
+  });
+
+  ipcMain.handle('selection-copy:write-to-clipboard', async (_event, text) => {
+    if (typeof text !== 'string' || text.length === 0) {
+      return false;
+    }
+    if (selectionService && selectionService.isAvailable() && selectionService.writeToClipboard(text)) {
+      return true;
+    }
+    try {
+      clipboard.writeText(text);
+      return true;
+    } catch (error) {
+      await logMessage('error', 'Failed to write clipboard via fallback', { error: error.message });
+      return false;
+    }
+  });
+
   ipcMain.on('selection-copy:log-error', async (_event, payload) => {
     await logMessage('error', 'Renderer reported an error', { payload });
   });
@@ -325,9 +419,11 @@ const setupIpc = () => {
 const setupNativeThemeBridge = () => {
   nativeTheme.on('updated', () => {
     const mode = nativeTheme.shouldUseDarkColors ? 'dark' : 'light';
-    if (mainWindow && !mainWindow.isDestroyed()) {
-      mainWindow.webContents.send('selection-copy:native-theme', mode);
-    }
+    BrowserWindow.getAllWindows().forEach((window) => {
+      if (!window.isDestroyed()) {
+        window.webContents.send('selection-copy:native-theme', mode);
+      }
+    });
   });
 };
 
@@ -336,6 +432,7 @@ app.whenReady().then(async () => {
   await loadConfigFromDisk();
   await applyAutoLaunchSetting();
   await watchConfigFile();
+  await initializeSelectionService();
   setupIpc();
   setupNativeThemeBridge();
   createMainWindow();
@@ -352,6 +449,9 @@ app.whenReady().then(async () => {
 
 app.on('before-quit', () => {
   app.isQuiting = true;
+  if (selectionService) {
+    selectionService.quit();
+  }
 });
 
 app.on('window-all-closed', () => {

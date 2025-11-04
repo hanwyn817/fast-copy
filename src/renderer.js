@@ -1,4 +1,7 @@
 const selectionBridge = window.selectionCopy ?? {};
+const params = new URLSearchParams(window.location.search);
+const isOverlayMode = params.get('overlay') === '1';
+document.documentElement.dataset.mode = isOverlayMode ? 'overlay' : 'demo';
 const bubble = document.getElementById('copy-bubble');
 const copyButton = document.getElementById('copy-button');
 const feedback = document.getElementById('copy-feedback');
@@ -53,7 +56,8 @@ const state = {
   lastSelectionText: '',
   selectionCheckQueued: false,
   feedbackTimeoutId: null,
-  bubbleVisible: false
+  bubbleVisible: false,
+  isOverlayMode
 };
 
 function structuredClone(value) {
@@ -151,7 +155,11 @@ const applyConfig = (incoming) => {
   applyBubbleStyle(merged.bubbleStyle);
   applyAnimationsPreference(merged.animations?.enable !== false);
   applyThemePreference();
-  queueSelectionEvaluation();
+  if (state.isOverlayMode) {
+    notifyToolbarSize();
+  } else {
+    queueSelectionEvaluation();
+  }
 };
 
 const clearFeedback = () => {
@@ -205,7 +213,32 @@ const adjustPositionWithinViewport = (left, top) => {
   return { left: clampedLeft, top: clampedTop };
 };
 
+const notifyToolbarSize = () => {
+  if (!state.isOverlayMode || typeof selectionBridge.determineToolbarSize !== 'function') {
+    return;
+  }
+  const rect = bubble.getBoundingClientRect();
+  if (rect.width && rect.height) {
+    selectionBridge.determineToolbarSize(rect.width, rect.height);
+  }
+};
+
 const drawBubble = (position) => {
+  if (state.isOverlayMode) {
+    bubble.style.left = '50%';
+    bubble.style.top = '50%';
+    bubble.classList.remove('hidden');
+    bubble.style.visibility = 'hidden';
+
+    requestAnimationFrame(() => {
+      bubble.style.visibility = '';
+      bubble.classList.add('show');
+      state.bubbleVisible = true;
+      notifyToolbarSize();
+    });
+    return;
+  }
+
   bubble.style.left = `${position.left}px`;
   bubble.style.top = `${position.top}px`;
   bubble.classList.remove('hidden');
@@ -282,6 +315,9 @@ const shouldSuppressForActiveApp = async () => {
 };
 
 const queueSelectionEvaluation = () => {
+  if (state.isOverlayMode) {
+    return;
+  }
   if (state.selectionCheckQueued) {
     return;
   }
@@ -341,6 +377,19 @@ const copyWithFallback = async (text) => {
   }
 };
 
+const tryNativeClipboard = async (text) => {
+  if (typeof selectionBridge.writeToClipboard !== 'function') {
+    return false;
+  }
+  try {
+    const result = await selectionBridge.writeToClipboard(text);
+    return Boolean(result);
+  } catch (error) {
+    selectionBridge.logError?.({ scope: 'renderer#nativeCopy', message: error.message });
+    return false;
+  }
+};
+
 const handleCopy = async (event) => {
   event.preventDefault();
   event.stopPropagation();
@@ -356,7 +405,10 @@ const handleCopy = async (event) => {
   }
 
   try {
-    await copyWithFallback(state.lastSelectionText);
+    const nativeCopied = await tryNativeClipboard(state.lastSelectionText);
+    if (!nativeCopied) {
+      await copyWithFallback(state.lastSelectionText);
+    }
     showFeedback();
   } catch (error) {
     selectionBridge.logError?.({
@@ -367,11 +419,43 @@ const handleCopy = async (event) => {
   }
 };
 
+const handleExternalSelection = (payload) => {
+  if (!state.isOverlayMode) {
+    return;
+  }
+
+  const incomingText = typeof payload?.text === 'string' ? payload.text.trim() : '';
+  state.lastSelectionText = incomingText;
+  if (!incomingText) {
+    hideBubble(true);
+    return;
+  }
+
+  drawBubble({ left: 0, top: 0 });
+  notifyToolbarSize();
+};
+
+const handleExternalHide = () => {
+  if (!state.isOverlayMode) {
+    return;
+  }
+  state.lastSelectionText = '';
+  hideBubble(true);
+};
+
 const setupBridgeListeners = () => {
   if (typeof selectionBridge.onConfigUpdated === 'function') {
     selectionBridge.onConfigUpdated((updatedConfig) => {
       applyConfig(updatedConfig);
     });
+  }
+
+  if (state.isOverlayMode && typeof selectionBridge.onShowBubble === 'function') {
+    selectionBridge.onShowBubble(handleExternalSelection);
+  }
+
+  if (state.isOverlayMode && typeof selectionBridge.onHideBubble === 'function') {
+    selectionBridge.onHideBubble(handleExternalHide);
   }
 
   if (typeof selectionBridge.onNativeTheme === 'function') {
@@ -397,6 +481,8 @@ const init = async () => {
   applyConfig(DEFAULT_CONFIG);
   setupBridgeListeners();
 
+  document.body.dataset.mode = state.isOverlayMode ? 'overlay' : 'demo';
+
   if (typeof selectionBridge.readConfig === 'function') {
     try {
       const initialConfig = await selectionBridge.readConfig();
@@ -406,9 +492,11 @@ const init = async () => {
     }
   }
 
-  document.addEventListener('selectionchange', queueSelectionEvaluation);
-  document.addEventListener('mouseup', queueSelectionEvaluation);
-  document.addEventListener('keyup', queueSelectionEvaluation);
+  if (!state.isOverlayMode) {
+    document.addEventListener('selectionchange', queueSelectionEvaluation);
+    document.addEventListener('mouseup', queueSelectionEvaluation);
+    document.addEventListener('keyup', queueSelectionEvaluation);
+  }
   document.addEventListener('keydown', (event) => {
     if (event.key === 'Escape') {
       window.getSelection()?.removeAllRanges();
@@ -423,8 +511,12 @@ const init = async () => {
     }
   });
 
-  window.addEventListener('resize', queueSelectionEvaluation, { passive: true });
-  window.addEventListener('scroll', queueSelectionEvaluation, { passive: true });
+  if (!state.isOverlayMode) {
+    window.addEventListener('resize', queueSelectionEvaluation, { passive: true });
+    window.addEventListener('scroll', queueSelectionEvaluation, { passive: true });
+  } else {
+    window.addEventListener('resize', notifyToolbarSize, { passive: true });
+  }
   window.addEventListener('blur', () => hideBubble(true));
 
   copyButton.addEventListener('click', handleCopy);
