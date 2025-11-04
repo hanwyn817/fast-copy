@@ -22,6 +22,7 @@
   --shadow-color: rgba(0, 0, 0, 0.45);
 }
 
+html,
 body {
   margin: 0;
   padding: 24px;
@@ -30,6 +31,7 @@ body {
   transition:
     background 220ms ease,
     color 220ms ease;
+  overflow: hidden;
 }
 
 body[data-mode='overlay'] {
@@ -56,11 +58,15 @@ body[data-mode='overlay'] #copy-bubble {
   position: absolute;
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
   padding: 8px 12px;
   background: var(--bubble-bg);
   border-radius: 999px;
-  box-shadow: 0 18px 35px var(--shadow-color);
+  box-shadow:
+    0 12px 30px rgba(0, 0, 0, 0.15),
+    0 4px 10px rgba(0, 0, 0, 0.08);
+  backdrop-filter: blur(14px) saturate(135%);
+  border: 1px solid rgba(255, 255, 255, 0.08);
   transform-origin: top left;
   transform: translate(-50%, -50%) scale(0.9);
   opacity: 0;
@@ -86,38 +92,67 @@ body[data-mode='overlay'] #copy-bubble {
 .copy-button {
   appearance: none;
   border: none;
-  background: linear-gradient(135deg, var(--accent-color), var(--accent-color-active));
+  position: relative;
+  background: radial-gradient(circle at 30% 30%, rgba(255, 255, 255, 0.35), transparent 55%),
+    linear-gradient(135deg, var(--accent-color), var(--accent-color-active));
   color: var(--bubble-text);
   font-size: 14px;
-  padding: 6px 14px;
+  padding: 7px 18px;
   border-radius: 999px;
   cursor: pointer;
   transition:
     background 120ms ease,
-    transform 120ms ease;
+    transform 120ms ease,
+    box-shadow 120ms ease;
+  box-shadow:
+    0 6px 18px rgba(76, 130, 255, 0.35),
+    inset 0 1px 0 rgba(255, 255, 255, 0.35);
+  overflow: hidden;
 }
 
 .copy-button:hover {
-  background: linear-gradient(135deg, var(--accent-color-hover), var(--accent-color));
+  background: radial-gradient(circle at 30% 30%, rgba(255, 255, 255, 0.5), transparent 55%),
+    linear-gradient(135deg, var(--accent-color-hover), var(--accent-color));
   transform: translateY(-1px);
+  box-shadow:
+    0 10px 22px rgba(76, 130, 255, 0.45),
+    inset 0 1px 0 rgba(255, 255, 255, 0.4);
 }
 
 .copy-button:active {
-  transform: translateY(1px);
+  transform: translateY(1px) scale(0.99);
+  box-shadow:
+    0 4px 12px rgba(76, 130, 255, 0.25),
+    inset 0 0 0 rgba(255, 255, 255, 0.25);
+}
+
+.copy-button:focus-visible {
+  outline: none;
+  box-shadow:
+    0 0 0 3px rgba(76, 130, 255, 0.35),
+    0 0 0 5px rgba(76, 130, 255, 0.18);
 }
 
 .copy-feedback {
   font-size: 14px;
   opacity: 0;
   transform: translateX(-6px);
+  max-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  margin-left: 0;
   transition:
     opacity 150ms ease,
-    transform 150ms ease;
+    transform 150ms ease,
+    max-width 180ms ease,
+    margin-left 120ms ease;
 }
 
 .copy-feedback.show {
   opacity: 1;
   transform: translateX(0);
+  max-width: 120px;
+  margin-left: 6px;
   animation: feedback-slide 180ms ease;
 }
 
