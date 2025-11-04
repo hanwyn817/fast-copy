@@ -12,7 +12,6 @@ const path = require('path');
 const fs = require('fs');
 const fsPromises = require('fs/promises');
 const os = require('os');
-const activeWin = require('active-win');
 const AutoLaunch = require('auto-launch');
 
 const APP_DIR_NAME = 'SelectionCopy';
@@ -56,6 +55,15 @@ let tray;
 let configWatcher;
 let currentConfig = { ...DEFAULT_CONFIG };
 let autoLauncher;
+let activeWinModule;
+
+const getActiveWin = async () => {
+  if (!activeWinModule) {
+    const imported = await import('active-win');
+    activeWinModule = imported.default || imported;
+  }
+  return activeWinModule;
+};
 
 const getAppStoragePath = (...segments) =>
   path.join(app.getPath('appData'), APP_DIR_NAME, ...segments);
@@ -282,6 +290,7 @@ const setupIpc = () => {
 
   ipcMain.handle('selection-copy:get-active-app', async () => {
     try {
+      const activeWin = await getActiveWin();
       const result = await activeWin();
       if (!result || !result.owner) {
         return null;
